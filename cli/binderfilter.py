@@ -16,6 +16,7 @@ import argparse
 from argparse import RawTextHelpFormatter
 from enum import Enum
 import struct
+import re
 
 binderFilterPolicyFile = "/data/local/tmp/bf.policy"
 binderFilterContextValuesFile = "/sys/kernel/debug/binder_filter/context_values"
@@ -91,67 +92,70 @@ def printFormatPolicyFile(file):
 		print "UID: " + items[1]
 		print "Package: " + getPackageNameForUid(items[1])
 		print "Action: " + getStringForAction(items[2])
-		if int(items[3]) != Contexts.CONTEXT_NONE:
+		if int(items[3]) != Contexts.CONTEXT_NONE.value:
 			print "Context: " + getStringForContext(items[3])
 			print "Context type: " + getStringForContextType(items[4])
 			print "Context value: " + getStringForContextValue(items[5])
-			if int(items[2]) == Actions.MODIFY_ACTION:
+			if int(items[2]) == Actions.MODIFY_ACTION.value:
 				print "Modify data: " + items[6]
-		if int(items[2]) == Actions.MODIFY_ACTION:
+		if int(items[2]) == Actions.MODIFY_ACTION.value:
 			print "Modify data: " + items[4]
 
 def getStringForAction(action):
-	if int(action) == Actions.BLOCK_ACTION:
+	if int(action) == Actions.BLOCK_ACTION.value:
 		return "Block"
-	elif int(action) == Actions.UNBLOCK_ACTION:
+	elif int(action) == Actions.UNBLOCK_ACTION.value:
 		return "Unblock"
-	elif int(action) == Actions.MODIFY_ACTION:
+	elif int(action) == Actions.MODIFY_ACTION.value:
 		return "Modify"
-	elif int(action) == Actions.UNMODIFY_ACTION:
+	elif int(action) == Actions.UNMODIFY_ACTION.value:
 		return "Unmodify"
 	else:
 		return "Unsupported action"
 
 def getStringForContext(context):
-	if int(context) == Contexts.CONTEXT_NONE:
+	if int(context) == Contexts.CONTEXT_NONE.value:
 		return "None"
-	elif int(context) == Contexts.CONTEXT_WIFI_STATE:
+	elif int(context) == Contexts.CONTEXT_WIFI_STATE.value:
 		return "Wifi state"
-	elif int(context) == Contexts.CONTEXT_WIFI_SSID:
+	elif int(context) == Contexts.CONTEXT_WIFI_SSID.value:
 		return "Wifi SSID"
-	elif int(context) == Contexts.CONTEXT_WIFI_NEARBY:
+	elif int(context) == Contexts.CONTEXT_WIFI_NEARBY.value:
 		return "Wifi nearby"
-	elif int(context) == Contexts.CONTEXT_BT_STATE:
+	elif int(context) == Contexts.CONTEXT_BT_STATE.value:
 		return "Bluetooth state"
-	elif int(context) == Contexts.CONTEXT_BT_CONNECTED_DEVICE:
+	elif int(context) == Contexts.CONTEXT_BT_CONNECTED_DEVICE.value:
 		return "Bluetooth conencted device"
-	elif int(context) == Contexts.CONTEXT_BT_NEARBY_DEVICE:
+	elif int(context) == Contexts.CONTEXT_BT_NEARBY_DEVICE.value:
 		return "Bluetooth nearby device"
-	elif int(context) == Contexts.CONTEXT_LOCATION:
+	elif int(context) == Contexts.CONTEXT_LOCATION.value:
 		return "Location"
-	elif int(context) == Contexts.CONTEXT_APP_INSTALLED:
+	elif int(context) == Contexts.CONTEXT_APP_INSTALLED.value:
 		return "Application installed"
-	elif int(context) == Contexts.CONTEXT_APP_RUNNING:
+	elif int(context) == Contexts.CONTEXT_APP_RUNNING.value:
 		return "Application running"
-	elif int(context) == Contexts.CONTEXT_DATE_DAY:
+	elif int(context) == Contexts.CONTEXT_DATE_DAY.value:
 		return "Date"
 	else:
 		return "Unsupported context"
 
 def getStringForContextType(contextType):
-	if int(contextType) == ContextTypes.CONTEXT_TYPE_INT:
+	if int(contextType) == ContextTypes.CONTEXT_TYPE_INT.value:
 		return "Integer"
-	elif int(contextType) == ContextTypes.CONTEXT_TYPE_STRING:
+	elif int(contextType) == ContextTypes.CONTEXT_TYPE_STRING.value:
 		return "String"
 	else:
 		return "Unsupported context type"
 
 def getStringForContextValue(contextValue):
-	if int(contextValue) == ContextIntValues.CONTEXT_STATE_ON:
+	if (isinstance(contextValue, basestring)):
+		return contextValue
+
+	if int(contextValue) == ContextIntValues.CONTEXT_STATE_ON.value:
 		return "On"
-	elif int(contextValue) == ContextIntValues.CONTEXT_STATE_OFF:
+	elif int(contextValue) == ContextIntValues.CONTEXT_STATE_OFF.value:
 		return "Off"
-	elif int(contextValue) == ContextIntValues.CONTEXT_STATE_UNKNOWN:
+	elif int(contextValue) == ContextIntValues.CONTEXT_STATE_UNKNOWN.value:
 		return "Unknown"
 	else:
 		return "Unsupported context value"
@@ -160,15 +164,17 @@ def printContextValues():
 	cmd='adb shell \"su -c \'cat ' + binderFilterContextValuesFile + '\'\"'
 	call(cmd, shell=True)
 
-#adb shell "dumpsys package | grep -A1 'userId=10082'"
+#adb shell "dumpsys package | grep -A1 "userId=10082""
 def getPackageNameForUid(uid):
-	p1 = subprocess.Popen(["adb", "shell", "dumpsys", "package", "|" , "grep", "-A1", "\'userId=" + str(uid) + "\'"], stdout=subprocess.PIPE)
+	p1 = subprocess.Popen(["adb", "shell", "dumpsys", "package", "|" , "grep", "-A1", "\"userId=" + str(uid) + "\""], stdout=subprocess.PIPE)
 	output = p1.communicate()[0]
 
 	if output.count('\n') < 2:
 		return "Package not found for uid " + uid
 
-	package = output.split('\n')[1]
+	# need to add the \b at the end for exact matches
+	match = re.search("userId="+str(uid)+"\\b"+ "((.*\n){2})", output)
+ 	package = match.group().split('\n')[1]
 	package = str.split(package)[1].replace('}','')
 	return package
 
@@ -188,7 +194,6 @@ def printApplications():
 	call(cmd, shell=True)
 
 def printCommands():
-	cmd='cat commandArgs.txt'
 	call(cmd, shell=True)
 
 def togglePrintBufferContents(action):
@@ -263,6 +268,10 @@ def printBinderLog(mask, array, forever):
 # 43.704979, -72.287458 becomes
 # 243.174.122.192.60.218.69.64.79.62.61.182.101.18.82.192.
 def getGpsStringForBinderFilter(latitude, longitude):
+	if not latitude or not longitude:
+		print "Please Use with --latitude [LAT] --longitude [LONG] to get BinderFilter translations of latitude, longitude coordinates."
+		sys.exit()
+
 	bLat = bytearray(struct.pack("d", float(latitude)))
 	bLong = bytearray(struct.pack("d", float(longitude)))
 
