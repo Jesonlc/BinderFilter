@@ -24,7 +24,7 @@ The GPS coordinates of interest are re-cast below.
 ## Documentation
 
 See the [wiki](https://github.com/dxwu/BinderFilter/wiki) for documentation.
-For the writeup and slides, see http://binderfilter.org/.
+For the writeup and slides, see ./presentations
 
 ## Usage
 
